@@ -1,0 +1,149 @@
+---
+title: "PML Project"
+author: "Fred Sallah"
+date: "August 21, 2015"
+output: html_document
+---
+#Executive Summary
+This study attempts to predict human activity based on accelerometer data obtained from wearable technology. This data was collected by the Brazilian Symposium on Artificial Intelligence (Ugulino, W. et al.) and attempts to predict the following classes of human activity: sitting, sitting down, standing, standing up and walking (categorized as classes A, B, C, D and E). The study begins by reading the training and testing data, and then splitting the training data into a training data set, a test data set and a validation data set to cross validate the prediction models produced. Using supervised machine learning with a number of learning methods, this study discovered that using a random forest learning method without preprocessing the predictor variables produced the most accurate prediction, achieving 100% accuracy.
+
+#Data Processing
+The initial data processing steps. It is hoped that an out-of-sample error rate less than 5% will be achieved. 
+```{r, cache=TRUE}
+library(RCurl)
+library(caret)
+library(doParallel)
+
+registerDoParallel(cores=6) 
+##Assigns 6 cores to this study to improve performance on computationally intensive tasks.
+
+#download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="./pml-training.csv")
+#download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="./pml-testing.csv")
+training <- read.csv("./pml-training.csv",header=TRUE, na.strings = c("NA", ""))
+testing <- read.csv("./pml-testing.csv", header=TRUE, na.strings = c("NA", ""))
+##Reads and loads data from external sources.
+
+training <- training[,complete.cases(t(training))]
+testing <- testing[,complete.cases(t(testing))]
+##Remove columns of data that do not have complete information. Removal of NA's was selected as the mitigating solution rather than attempting to populate the missing values with averages or zeros, as the amount of incomplete data was extensive and artificially populating the data would have skewed the predicted results.
+
+training <- training[,-(1:7)]
+testing <- testing[,-(1:7)]
+##Remove  unnecessary columns that do not include accelerometer measurements (i.e. subject names, row names and timestamps)
+
+inBuild <-  createDataPartition(y=training$classe, p=0.8, list=FALSE)
+testSet <- training[-inBuild,]
+training <- training[inBuild,]
+##Splits the training set with 80% of the data assigned to training and 20% assigned to another test set for cross validation.
+
+inBuild <- createDataPartition(y=training$classe, p=0.75, list=FALSE)
+validation <- training[-inBuild,]
+training <- training[inBuild,]
+##Splits the training set again with 75% of the data assigned to training and 25% assigned to a validation for cross validation. This results in a 60-20-20 split between training, testSet and validation respectively.
+
+modFit <- readRDS("./modFit.rds")
+modFitx <- readRDS("./modFitx.rds")
+##Loads cached prediction models. Models were cached to improve performance due the computationally intensive task of calculating prediction models.
+
+#modFit <- train(training$classe~., method="rf", preProcess="pca", data=training)
+##modFitx <- train(training$classe~., method="rf", data=training)
+##Training methods that will be used for the main body of this study. Specifically, modFit uses random forest with preprocessing and modFitx uses random forest without preprocessing. Random forest was found to be the learning method that returned the highest results. Additional learning methods were used. Please see the appendix for a list of them along with their results.
+
+#saveRDS(modFit, file="modFit.rds")
+#saveRDS(modFitx, file="modFitx.rds")
+##Caches prediction models as previously mentioned.
+```
+
+#Results
+Starting with the model calculated by random forest with preprocessing, we see that the model returns with 99.16% accuracy on the test set and 98.78% on the validation set.
+```{r, cache=TRUE}
+confusionMatrix(testSet$classe, predict(modFit, testSet))
+confusionMatrix(validation$classe, predict(modFit, validation))
+```
+**As such, random forest with preprocessing has an out-of-sample error rate of 0.84% on the test set and 1.22% on the validation set.**
+
+However, the model calculated by random forest *without* preprocessing returned with 100% accuracy on the test set and 100% on the validation set.
+```{r, cache=TRUE}
+confusionMatrix(testSet$classe, predict(modFitx, testSet))
+confusionMatrix(validation$classe, predict(modFitx, validation))
+```
+**As such, random forest** *without* **preprocessing has an out-of-sample error rate of 0% on both the test and the validation sets.**
+
+Using the model created from random forest without preprocessing, we see that "roll belt" variable was the most significant in terms of accurate prediction, followed by "pitch forearm"" and "yaw belt" respectively.
+```{r, cache=TRUE}
+varImpPlot(modFitx$finalModel, main = "Variable Importance As Measured By Random Forest")
+```
+
+Finally we see the results of the prediction created by random forest without preproccessing.
+```{r, cache=TRUE}
+predict(modFitx, testing)
+```
+
+#Conclusion
+For this type of data, random forest without preprocessing turned out to be the most accurate method of prediction. Returning results that were 100% accurate for the (training)test set, validation set and the final testing set.
+
+#Appendices
+##Zero Covariate Check
+```{r, cache=TRUE}
+nearZeroVar(training,saveMetrics=TRUE) 
+#check to see if any zero covariates exists
+```
+
+##Additional Learning Methods (With Preprocessing)
+###CART
+```{r, cache=TRUE}
+#modFit2 <- train(training$classe~., method="rpart", preProcess="pca", data=training,verbose=FALSE)
+#saveRDS(modFit2, file="modFit2.rds")
+modFit2 = readRDS("modFit2.rds")
+
+confusionMatrix(testSet$classe, predict(modFit2, testSet))
+confusionMatrix(validation$classe, predict(modFit2, validation))
+```
+
+###Stochastic Gradient Boosting
+```{r, cache=TRUE}
+#modFit3 <- train(training$classe~., method="gbm", preProcess="pca", data=training,verbose=FALSE)
+#saveRDS(modFit3, file="modFit3.rds")
+modFit3 = readRDS("modFit3.rds")
+
+confusionMatrix(testSet$classe, predict(modFit3, testSet))
+confusionMatrix(validation$classe, predict(modFit3, validation))
+```
+
+###Bagged CART
+```{r, cache=TRUE}
+#modFit4 <- train(training$classe~., method="treebag", preProcess="pca", data=training)
+#saveRDS(modFit4, file="modFit4.rds")
+modFit4 = readRDS("modFit4.rds")
+
+confusionMatrix(testSet$classe, predict(modFit4, testSet))
+confusionMatrix(validation$classe, predict(modFit4, validation))
+```
+
+###Bagged Flexible Discriminant Analysis
+```{r, cache=TRUE}
+#modFit5 <- train(training$classe~., method="bagFDA", preProcess="pca", data=training)
+#saveRDS(modFit5, file="modFit5.rds")
+modFit5 = readRDS("modFit5.rds")
+
+confusionMatrix(testSet$classe, predict(modFit5, testSet))
+confusionMatrix(validation$classe, predict(modFit5, validation))
+```
+
+###Linear Discriminant Analysis
+```{r, cache=TRUE}
+#modFit6 <- train(training$classe~., method="lda", preProcess="pca", data=training)
+#saveRDS(modFit6, file="modFit6.rds")
+modFit6 = readRDS("modFit6.rds")
+
+confusionMatrix(testSet$classe, predict(modFit6, testSet))
+confusionMatrix(validation$classe, predict(modFit6, validation))
+```
+
+#Bibliography
+1. Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. 
+Cited by 2 (Google Scholar) 
+
+http://groupware.les.inf.puc-rio.br/har
+
+

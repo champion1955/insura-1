@@ -24,17 +24,6 @@
 #msg-box1-3 .mbr-article {
   color: #fff;
 }
-#content5-8 .mbr-header .mbr-header__text {
-  text-align: center;
-  color: #fff;
-}
-#content5-8 .mbr-header .mbr-header__subtext {
-  text-align: center;
-  color: #fff;
-}
-#content5-8 .mbr-article {
-  color: #fff;
-}
 #ext_menu-0 .mbr-brand__name {
   font-size: 16px;
 }
@@ -257,6 +246,9 @@
   font-size: 16px;
 }
 #ext_menu-52.mbr-navbar--stuck .mbr-navbar__section {
+  background: #2c2c2c;
+}
+#ext_menu-52 .mbr-navbar__section {
   background: #2c2c2c;
 }
 #ext_menu-52 .mbr-navbar__hamburger {
